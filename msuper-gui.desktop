@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MSuper GUI
+Comment=Android Super Image Tool
+Exec=/usr/lib/msuper-gui/msuper-gui
+Icon=msuper-gui
+Terminal=false
+Categories=Utility;System;
+Keywords=android;image;super;mount;
