@@ -28,8 +28,12 @@ private:
     GtkWidget *main_vbox;
     GtkWidget *content_vbox;
     GtkWidget *title_label;
-    GtkWidget *file_chooser_button;
-    GtkWidget *file_chooser_box;
+    GtkWidget *super_file_chooser_button;
+    GtkWidget *super_file_chooser_box;
+    GtkWidget *system_file_chooser_button;
+    GtkWidget *system_file_chooser_box;
+    GtkWidget *clear_super_button;
+    GtkWidget *clear_system_button;
     GtkWidget *process_button;
     GtkWidget *status_label;
     GtkWidget *partition_combo;
@@ -44,10 +48,14 @@ private:
     GtkWidget *status_light_event_box;
 
     std::string input_img;
+    std::string system_img;
     std::string ext4_img;
     std::string unpack_dir;
     std::string mount_dir;
     std::vector<std::string> partition_images;
+    
+    bool is_super_selected;
+    bool is_system_selected;
 
     Status current_status;
     guint breathe_timeout_id;
@@ -67,7 +75,7 @@ private:
     std::string LPUNPACK;
 
 public:
-    MSuperGUI() : current_status(Status::READY), breathe_timeout_id(0), breathe_state(false) {
+    MSuperGUI() : is_super_selected(false), is_system_selected(false), current_status(Status::READY), breathe_timeout_id(0), breathe_state(false) {
         // 获取程序所在目录
         std::string program_dir = get_program_directory();
         SIMG2IMG = program_dir + "/simg2img";
@@ -104,6 +112,9 @@ public:
 
         // 创建文件选择区域
         create_file_chooser_section();
+        
+        // 创建System镜像文件选择区域
+        create_system_file_chooser_section();
 
         // 创建处理按钮
         create_process_button();
@@ -157,18 +168,54 @@ private:
 
     // 创建文件选择区域
     void create_file_chooser_section() {
-        file_chooser_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-        gtk_box_pack_start(GTK_BOX(content_vbox), file_chooser_box, FALSE, FALSE, 0);
+        super_file_chooser_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+        gtk_box_pack_start(GTK_BOX(content_vbox), super_file_chooser_box, FALSE, FALSE, 0);
 
         GtkWidget *label = gtk_label_new(NULL);
         gtk_label_set_markup(GTK_LABEL(label), "<b>选择 Super 镜像文件:</b>");
         gtk_widget_set_halign(label, GTK_ALIGN_START);
-        gtk_box_pack_start(GTK_BOX(file_chooser_box), label, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(super_file_chooser_box), label, FALSE, FALSE, 0);
 
-        file_chooser_button = gtk_file_chooser_button_new("选择 Super.img 文件", GTK_FILE_CHOOSER_ACTION_OPEN);
-        gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(file_chooser_button), create_file_filter());
-        gtk_widget_set_size_request(file_chooser_button, 400, -1);
-        gtk_box_pack_start(GTK_BOX(file_chooser_box), file_chooser_button, FALSE, FALSE, 0);
+        GtkWidget *super_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        gtk_box_pack_start(GTK_BOX(super_file_chooser_box), super_hbox, FALSE, FALSE, 0);
+
+        super_file_chooser_button = gtk_file_chooser_button_new("选择 Super.img 文件", GTK_FILE_CHOOSER_ACTION_OPEN);
+        gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(super_file_chooser_button), create_file_filter());
+        gtk_widget_set_size_request(super_file_chooser_button, 320, -1);
+        gtk_box_pack_start(GTK_BOX(super_hbox), super_file_chooser_button, FALSE, FALSE, 0);
+
+        clear_super_button = gtk_button_new_with_label("清除");
+        gtk_widget_set_size_request(clear_super_button, 70, -1);
+        gtk_box_pack_start(GTK_BOX(super_hbox), clear_super_button, FALSE, FALSE, 0);
+        g_signal_connect(clear_super_button, "clicked", G_CALLBACK(on_clear_super_clicked), this);
+        
+        g_signal_connect(super_file_chooser_button, "file-set", G_CALLBACK(on_super_file_set), this);
+    }
+
+    // 创建System镜像文件选择区域
+    void create_system_file_chooser_section() {
+        system_file_chooser_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+        gtk_box_pack_start(GTK_BOX(content_vbox), system_file_chooser_box, FALSE, FALSE, 0);
+
+        GtkWidget *label = gtk_label_new(NULL);
+        gtk_label_set_markup(GTK_LABEL(label), "<b>选择非Super镜像文件:</b>");
+        gtk_widget_set_halign(label, GTK_ALIGN_START);
+        gtk_box_pack_start(GTK_BOX(system_file_chooser_box), label, FALSE, FALSE, 0);
+
+        GtkWidget *system_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        gtk_box_pack_start(GTK_BOX(system_file_chooser_box), system_hbox, FALSE, FALSE, 0);
+
+        system_file_chooser_button = gtk_file_chooser_button_new("选择非Super.img 文件", GTK_FILE_CHOOSER_ACTION_OPEN);
+        gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(system_file_chooser_button), create_file_filter());
+        gtk_widget_set_size_request(system_file_chooser_button, 320, -1);
+        gtk_box_pack_start(GTK_BOX(system_hbox), system_file_chooser_button, FALSE, FALSE, 0);
+
+        clear_system_button = gtk_button_new_with_label("清除");
+        gtk_widget_set_size_request(clear_system_button, 70, -1);
+        gtk_box_pack_start(GTK_BOX(system_hbox), clear_system_button, FALSE, FALSE, 0);
+        g_signal_connect(clear_system_button, "clicked", G_CALLBACK(on_clear_system_clicked), this);
+        
+        g_signal_connect(system_file_chooser_button, "file-set", G_CALLBACK(on_system_file_set), this);
     }
 
     // 创建处理按钮
@@ -203,14 +250,30 @@ private:
         gtk_box_pack_start(GTK_BOX(content_vbox), button_box, FALSE, FALSE, 10);
 
         mount_button = gtk_button_new_with_label("挂载所选分区");
-        gtk_widget_set_size_request(mount_button, 150, 35);
+        gtk_widget_set_size_request(mount_button, 160, 35);
         gtk_container_add(GTK_CONTAINER(button_box), mount_button);
         g_signal_connect(mount_button, "clicked", G_CALLBACK(on_mount_clicked), this);
 
-        unmount_button = gtk_button_new_with_label("卸载分区");
-        gtk_widget_set_size_request(unmount_button, 150, 35);
+        unmount_button = gtk_button_new_with_label("卸载镜像");
+        gtk_widget_set_size_request(unmount_button, 160, 35);
         gtk_container_add(GTK_CONTAINER(button_box), unmount_button);
         g_signal_connect(unmount_button, "clicked", G_CALLBACK(on_unmount_clicked), this);
+    }
+
+    // 更新挂载按钮标签
+    void update_mount_button_label() {
+        if (is_system_selected && !system_img.empty()) {
+            fs::path img_path(system_img);
+            std::string img_name = img_path.filename().string();
+            // 去掉.img后缀
+            if (img_name.size() > 4 && img_name.substr(img_name.size() - 4) == ".img") {
+                img_name = img_name.substr(0, img_name.size() - 4);
+            }
+            std::string button_label = "挂载" + img_name + "镜像";
+            gtk_button_set_label(GTK_BUTTON(mount_button), button_label.c_str());
+        } else {
+            gtk_button_set_label(GTK_BUTTON(mount_button), "挂载所选分区");
+        }
     }
 
     // 创建状态标签
@@ -375,7 +438,7 @@ private:
     // 显示文件选择对话框
     void show_file_chooser_dialog() {
         GtkWidget *dialog = gtk_file_chooser_dialog_new(
-            "选择 Super 镜像文件",
+            "选择镜像文件",
             GTK_WINDOW(window),
             GTK_FILE_CHOOSER_ACTION_OPEN,
             "_取消", GTK_RESPONSE_CANCEL,
@@ -388,7 +451,7 @@ private:
         if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
             char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
             if (filename) {
-                gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(file_chooser_button), filename);
+                gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(super_file_chooser_button), filename);
                 g_free(filename);
             }
         }
@@ -490,7 +553,8 @@ private:
     // 重置所有控件到初始状态
     void reset_controls() {
         // 重置文件选择器
-        gtk_file_chooser_unselect_all(GTK_FILE_CHOOSER(file_chooser_button));
+        gtk_file_chooser_unselect_all(GTK_FILE_CHOOSER(super_file_chooser_button));
+        gtk_file_chooser_unselect_all(GTK_FILE_CHOOSER(system_file_chooser_button));
 
         // 清空分区列表
         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(partition_combo));
@@ -502,7 +566,111 @@ private:
 
         // 清空文件名缓存
         input_img.clear();
+        system_img.clear();
         ext4_img.clear();
+        
+        is_super_selected = false;
+        is_system_selected = false;
+        
+        // 启用所有控件
+        gtk_widget_set_sensitive(super_file_chooser_button, TRUE);
+        gtk_widget_set_sensitive(system_file_chooser_button, TRUE);
+        gtk_widget_set_sensitive(process_button, TRUE);
+        gtk_widget_set_sensitive(partition_combo, TRUE);
+        gtk_widget_set_sensitive(mount_button, TRUE);
+    }
+
+    // 清除Super镜像
+    void clear_super_image() {
+        gtk_file_chooser_unselect_all(GTK_FILE_CHOOSER(super_file_chooser_button));
+        input_img.clear();
+        ext4_img.clear();
+        is_super_selected = false;
+        
+        // 清空分区列表
+        gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(partition_combo));
+        partition_images.clear();
+        
+        // 启用System镜像选择
+        gtk_widget_set_sensitive(system_file_chooser_button, TRUE);
+        
+        // 更新挂载按钮标签
+        update_mount_button_label();
+        
+        // 更新状态
+        gtk_label_set_text(GTK_LABEL(status_label), "Super镜像已清除");
+        set_status(Status::READY);
+    }
+
+    // 清除System镜像
+    void clear_system_image() {
+        gtk_file_chooser_unselect_all(GTK_FILE_CHOOSER(system_file_chooser_button));
+        system_img.clear();
+        is_system_selected = false;
+        
+        // 启用Super镜像选择
+        gtk_widget_set_sensitive(super_file_chooser_button, TRUE);
+        gtk_widget_set_sensitive(process_button, TRUE);
+        gtk_widget_set_sensitive(partition_combo, TRUE);
+        
+        // 更新挂载按钮标签
+        update_mount_button_label();
+        
+        // 更新状态
+        gtk_label_set_text(GTK_LABEL(status_label), "System镜像已清除");
+        set_status(Status::READY);
+    }
+
+    // 处理Super文件选择
+    void handle_super_file_selection() {
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(super_file_chooser_button));
+        if (filename) {
+            input_img = filename;
+            g_free(filename);
+            is_super_selected = true;
+            
+            // 禁用System镜像选择
+            gtk_widget_set_sensitive(system_file_chooser_button, FALSE);
+            
+            // 如果之前选择了System镜像，清除它
+            if (is_system_selected) {
+                clear_system_image();
+            }
+            
+            // 更新挂载按钮标签
+            update_mount_button_label();
+            
+            std::string super_status = "已选择Super镜像: " + input_img;
+            gtk_label_set_text(GTK_LABEL(status_label), super_status.c_str());
+            set_status(Status::READY);
+        }
+    }
+
+    // 处理System文件选择
+    void handle_system_file_selection() {
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(system_file_chooser_button));
+        if (filename) {
+            system_img = filename;
+            g_free(filename);
+            is_system_selected = true;
+            
+            // 禁用Super镜像选择和处理按钮、分区选择
+            gtk_widget_set_sensitive(super_file_chooser_button, FALSE);
+            gtk_widget_set_sensitive(process_button, FALSE);
+            gtk_widget_set_sensitive(partition_combo, FALSE);
+            
+            // 如果之前选择了Super镜像，清除它
+            if (is_super_selected) {
+                clear_super_image();
+            }
+            
+            // 更新挂载按钮标签
+            update_mount_button_label();
+            
+            std::string system_status = "已选择System镜像: " + system_img;
+            gtk_label_set_text(GTK_LABEL(status_label), system_status.c_str());
+            set_status(Status::READY);
+        }
     }
 
     // 清除缓存（子线程）
@@ -557,7 +725,7 @@ private:
         ensure_directory_exists(UNPACK_DIR);
 
         // 获取选择的文件
-        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(file_chooser_button));
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(super_file_chooser_button));
         if (!filename) {
             log_message("错误: 未选择文件");
             update_status_in_main("错误: 请选择一个文件", Status::ERROR);
@@ -621,24 +789,38 @@ private:
         update_status_in_main("处理完成，请选择要挂载的分区", Status::SUCCESS);
     }
 
-    // 挂载所选分区（子线程）
+    // 挂载所选分区或System镜像（子线程）
     void mount_partition_thread() {
-        log_message("开始挂载分区");
+        log_message("开始挂载");
         ensure_directory_exists(MOUNT_DIR);
 
-        int active_index = gtk_combo_box_get_active(GTK_COMBO_BOX(partition_combo));
-        if (active_index < 0 || active_index >= (int)partition_images.size()) {
-            log_message("错误: 未选择分区");
-            update_status_in_main("错误: 请选择一个分区", Status::ERROR);
-            return;
+        std::string selected_img;
+        std::string selected_name;
+
+        if (is_system_selected) {
+            // 挂载System镜像
+            selected_img = system_img;
+            fs::path img_path(selected_img);
+            selected_name = img_path.filename().string();
+            
+            log_message("选择的System镜像: " + selected_name);
+            update_status_in_main("正在挂载System镜像: " + selected_name, Status::WORKING);
+        } else {
+            // 挂载Super镜像的分区
+            int active_index = gtk_combo_box_get_active(GTK_COMBO_BOX(partition_combo));
+            if (active_index < 0 || active_index >= (int)partition_images.size()) {
+                log_message("错误: 未选择分区");
+                update_status_in_main("错误: 请选择一个分区", Status::ERROR);
+                return;
+            }
+
+            selected_img = partition_images[active_index];
+            fs::path img_path(selected_img);
+            selected_name = img_path.filename().string();
+
+            log_message("选择的分区: " + selected_name);
+            update_status_in_main("正在挂载分区: " + selected_name, Status::WORKING);
         }
-
-        std::string selected_img = partition_images[active_index];
-        fs::path img_path(selected_img);
-        std::string selected_name = img_path.filename().string();
-
-        log_message("选择的分区: " + selected_name);
-        update_status_in_main("正在挂载分区: " + selected_name, Status::WORKING);
 
         // 检查挂载点是否已挂载
         if (is_mounted()) {
@@ -646,11 +828,10 @@ private:
             update_status_in_main("卸载已有挂载...", Status::WORKING);
             std::string unmount_cmd = "pkexec umount \"" + MOUNT_DIR + "\"";
             execute_command(unmount_cmd);
-            // 等待一下
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
 
-        // 使用 pkexec 挂载分区（会弹出密码对话框）
+        // 使用 pkexec 挂载（会弹出密码对话框）
         std::string mount_command = "pkexec mount -o ro,loop \"" + selected_img + "\" \"" + MOUNT_DIR + "\"";
         log_message("执行挂载命令");
         update_status_in_main("执行挂载命令，请在弹出的对话框中输入密码...", Status::WORKING);
@@ -743,6 +924,32 @@ private:
         gui->show_file_chooser_dialog();
     }
 
+    static void on_clear_super_clicked(GtkWidget *widget, gpointer data) {
+        (void)widget;
+        MSuperGUI *gui = static_cast<MSuperGUI*>(data);
+        gui->log_message("用户点击清除Super镜像");
+        gui->clear_super_image();
+    }
+
+    static void on_clear_system_clicked(GtkWidget *widget, gpointer data) {
+        (void)widget;
+        MSuperGUI *gui = static_cast<MSuperGUI*>(data);
+        gui->log_message("用户点击清除System镜像");
+        gui->clear_system_image();
+    }
+
+    static void on_super_file_set(GtkWidget *widget, gpointer data) {
+        (void)widget;
+        MSuperGUI *gui = static_cast<MSuperGUI*>(data);
+        gui->handle_super_file_selection();
+    }
+
+    static void on_system_file_set(GtkWidget *widget, gpointer data) {
+        (void)widget;
+        MSuperGUI *gui = static_cast<MSuperGUI*>(data);
+        gui->handle_system_file_selection();
+    }
+
     static void on_clear_cache_clicked(GtkWidget *widget, gpointer data) {
         (void)widget;
         MSuperGUI *gui = static_cast<MSuperGUI*>(data);
@@ -822,8 +1029,9 @@ private:
 
         const char *instructions_text =
             "<b>操作说明</b>\n\n"
+            "<b>使用 Super 镜像:</b>\n\n"
             "<b>步骤 1: 选择 Super 镜像文件</b>\n"
-            "点击\"选择 Super 镜像文件\"按钮或使用菜单栏的\"文件 -> 打开\"，选择要处理的 super.img 文件。\n\n"
+            "点击\"选择 Super 镜像文件\"按钮，选择要处理的 super.img 文件。\n\n"
             "<b>步骤 2: 处理镜像</b>\n"
             "点击\"处理镜像\"按钮，程序会：\n"
             "  • 使用 simg2img 转换稀疏镜像\n"
@@ -836,13 +1044,22 @@ private:
             "  • 会弹出密码输入对话框\n"
             "  • 输入管理员密码确认\n"
             "  • 挂载成功后会自动打开文件管理器\n\n"
-            "<b>卸载分区</b>\n"
-            "使用完毕后，点击\"卸载分区\"按钮卸载已挂载的分区。\n\n"
+            "<b>使用 System 镜像:</b>\n\n"
+            "<b>步骤 1: 选择 System 镜像文件</b>\n"
+            "点击\"选择 System 镜像文件\"按钮，选择要挂载的 system.img 文件。\n"
+            "选择System镜像后，无需处理镜像和选择分区，可以直接挂载。\n\n"
+            "<b>步骤 2: 挂载镜像</b>\n"
+            "点击\"挂载System镜像\"按钮即可直接挂载。\n\n"
+            "<b>注意事项:</b>\n"
+            "  • Super镜像和System镜像互斥，选择一个后另一个会被禁用\n"
+            "  • 如需切换镜像类型，请先点击对应镜像的\"清除\"按钮\n\n"
+            "<b>卸载镜像</b>\n"
+            "使用完毕后，点击\"卸载镜像\"按钮卸载已挂载的镜像。\n\n"
             "<b>清除缓存</b>\n"
             "使用\"工具 -> 清除缓存\"可以清理：\n"
             "  • 转换后的镜像文件 (*_ext4)\n"
             "  • 解包的分区文件\n"
-            "注意：清除缓存前会检查是否有分区已挂载，如有需要先卸载。\n\n"
+            "注意：清除缓存前会检查是否有镜像已挂载，如有需要先卸载。\n\n"
             "<b>工作目录</b>\n"
             "  • 镜像处理: ~/.local/images/\n"
             "  • 解包目录: ~/.local/images/unpacked/\n"
